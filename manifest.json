@@ -1,0 +1,27 @@
+{
+  "name": "PCS Getiri Hesaplayıcı",
+  "short_name": "PCS Calc",
+  "description": "Put / Bull Credit Spread getiri, ROC ve risk hesaplayıcı. 5 senaryo karşılaştırma. Offline çalışan PWA.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#E8DDC9",
+  "theme_color": "#B36A48",
+  "lang": "tr",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
