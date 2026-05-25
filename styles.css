@@ -44,7 +44,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ---------- Header ---------- */
 .app-header {
   background: linear-gradient(180deg, rgba(251, 245, 229, 0.85), rgba(247, 239, 219, 0.7));
   backdrop-filter: blur(8px);
@@ -65,11 +64,7 @@ body {
   flex-wrap: wrap;
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
+.brand { display: flex; align-items: center; gap: 14px; }
 
 .brand-logo {
   width: 48px;
@@ -86,17 +81,9 @@ body {
   line-height: 1.2;
 }
 
-.subtitle {
-  font-size: 13.5px;
-  color: var(--text-2);
-  margin-top: 2px;
-}
+.subtitle { font-size: 13.5px; color: var(--text-2); margin-top: 2px; }
 
-.controls {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
+.controls { display: flex; gap: 10px; flex-wrap: wrap; }
 
 button {
   font-family: inherit;
@@ -114,10 +101,7 @@ button {
 
 button:hover { background: var(--surface); border-color: var(--accent); }
 button:active { transform: translateY(1px); }
-button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 #example-btn {
   background: var(--accent);
@@ -126,20 +110,10 @@ button:focus-visible {
 }
 #example-btn:hover { background: var(--accent-2); }
 
-/* ---------- Main ---------- */
-main {
-  max-width: 1240px;
-  margin: 0 auto;
-  padding: 24px;
-}
+main { max-width: 1240px; margin: 0 auto; padding: 24px; }
 
-#scenarios {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
+#scenarios { display: flex; flex-direction: column; gap: 18px; }
 
-/* ---------- Scenario card ---------- */
 .scenario-card {
   background: var(--surface-2);
   border: 1px solid var(--border-soft);
@@ -207,7 +181,6 @@ main {
 }
 .clear-row:hover { color: var(--danger); border-color: var(--border-soft); background: var(--surface-3); }
 
-/* ---------- Inputs ---------- */
 .inputs-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -241,7 +214,6 @@ main {
 
 .inputs-grid input::placeholder { color: var(--text-3); font-weight: 500; }
 
-/* ---------- Results ---------- */
 .results {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
@@ -284,21 +256,10 @@ main {
   line-height: 1.2;
 }
 
-.result-tile.big .result-value {
-  font-size: 22px;
-  color: var(--accent-3);
-}
-
+.result-tile.big .result-value { font-size: 22px; color: var(--accent-3); }
 .result-tile.positive .result-value { color: var(--success); }
 .result-tile.negative .result-value { color: var(--danger); }
 .result-tile.neutral .result-value { color: var(--text); }
-
-.result-warn {
-  margin-top: 2px;
-  font-size: 11px;
-  color: var(--danger);
-  font-weight: 600;
-}
 
 .empty-state {
   grid-column: 1 / -1;
@@ -312,10 +273,7 @@ main {
   border: 1px dashed var(--border-soft);
 }
 
-/* ---------- Comparison ---------- */
-#comparison {
-  margin-top: 28px;
-}
+#comparison { margin-top: 28px; }
 
 .section-head {
   display: flex;
@@ -334,11 +292,7 @@ main {
   letter-spacing: -0.3px;
 }
 
-.section-sub {
-  color: var(--text-2);
-  font-size: 13.5px;
-}
-
+.section-sub { color: var(--text-2); font-size: 13.5px; }
 .section-sub .star { color: var(--gold); font-weight: 700; }
 
 .compare-wrap {
@@ -391,10 +345,7 @@ main {
   color: var(--accent-3);
 }
 
-.compare-table td.best::after {
-  content: " ★";
-  color: var(--gold);
-}
+.compare-table td.best::after { content: " ★"; color: var(--gold); }
 
 .compare-empty {
   padding: 28px;
@@ -403,7 +354,6 @@ main {
   font-style: italic;
 }
 
-/* ---------- Footer ---------- */
 .app-footer {
   text-align: center;
   color: var(--text-3);
@@ -411,7 +361,6 @@ main {
   padding: 20px 16px 28px;
 }
 
-/* ---------- Responsive ---------- */
 @media (max-width: 720px) {
   .app-header h1 { font-size: 18px; }
   .subtitle { font-size: 12.5px; }

@@ -39,7 +39,6 @@
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(scenarios)); } catch {}
   }
 
-  // ---------- Math ----------
   function toNum(v) {
     const n = parseFloat(v);
     return Number.isFinite(n) ? n : NaN;
