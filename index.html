@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#B36A48" />
+  <meta name="color-scheme" content="light" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="PCS Calc" />
+  <meta name="description" content="Put / Bull Credit Spread getiri, ROC ve risk hesaplayıcı. Offline çalışan PWA." />
+  <title>PCS Getiri Hesaplayıcı</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="./icons/icon.svg" />
+  <link rel="apple-touch-icon" href="./icons/icon.svg" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <img src="./icons/icon.svg" alt="" class="brand-logo" />
+        <div>
+          <h1>PCS Getiri Hesaplayıcı</h1>
+          <p class="subtitle">Put / Bull Credit Spread getiri, ROC ve risk analizi · 5 senaryo karşılaştırma</p>
+        </div>
+      </div>
+      <div class="controls" role="toolbar" aria-label="Uygulama kontrolleri">
+        <button id="example-btn" type="button" title="5 senaryoyu örnek değerlerle doldur">Örnek Doldur</button>
+        <button id="reset-btn" type="button" title="Tüm senaryoları temizle">Temizle</button>
+        <button id="export-btn" type="button" title="Karşılaştırma tablosunu CSV olarak indir">CSV İndir</button>
+        <button id="install-btn" type="button" hidden title="Uygulamayı cihazına yükle">Yükle</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="scenarios" aria-label="Senaryolar"></section>
+
+    <section id="comparison" aria-label="Karşılaştırma">
+      <div class="section-head">
+        <h2>Karşılaştırma</h2>
+        <p class="section-sub">Her metrikte en iyi senaryo <span class="star">★</span> ile işaretlenir.</p>
+      </div>
+      <div id="comparison-table" class="compare-wrap"></div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>Offline çalışan PWA · Veriler yalnızca tarayıcıda saklanır · Yatırım tavsiyesi değildir</p>
+  </footer>
+
+  <template id="scenario-template">
+    <article class="scenario-card">
+      <div class="scenario-header">
+        <span class="scenario-badge"></span>
+        <input type="text" class="scenario-name" placeholder="Senaryo adı (opsiyonel)" maxlength="40" data-field="name" />
+        <button type="button" class="clear-row" title="Bu senaryoyu temizle" aria-label="Senaryoyu temizle">×</button>
+      </div>
+
+      <div class="inputs-grid">
+        <label class="field">
+          <span class="field-label" title="İki strike arasındaki dolar farkı (ör. 5 puanlık spread)">Kanat Genişliği ($)</span>
+          <input type="number" inputmode="decimal" step="0.5" min="0" data-field="width" placeholder="5" />
+        </label>
+        <label class="field">
+          <span class="field-label" title="Spread için alınan net kredi (prim)">Alınan Prim ($)</span>
+          <input type="number" inputmode="decimal" step="0.01" min="0" data-field="premium" placeholder="1.00" />
+        </label>
+        <label class="field">
+          <span class="field-label" title="Primin yüzde kaçı kâr olarak alınınca pozisyon kapatılır (ör. 50 = primin %50'si)">Take Profit (%)</span>
+          <input type="number" inputmode="decimal" step="1" min="0" max="100" data-field="tp" placeholder="50" />
+        </label>
+        <label class="field">
+          <span class="field-label" title="Primin kaç katı zarar edilince stop verilir (ör. 200 = primin 2 katı zarar)">Stop Loss (%)</span>
+          <input type="number" inputmode="decimal" step="1" min="0" data-field="sl" placeholder="200" />
+        </label>
+        <label class="field">
+          <span class="field-label" title="Kazanan trade oranı beklentin (ör. 80)">Win Rate (%)</span>
+          <input type="number" inputmode="decimal" step="1" min="0" max="100" data-field="winRate" placeholder="80" />
+        </label>
+        <label class="field">
+          <span class="field-label" title="Aynı anda açılan kontrat adedi">Kontrat Sayısı</span>
+          <input type="number" inputmode="numeric" step="1" min="0" data-field="contracts" placeholder="5" />
+        </label>
+        <label class="field">
+          <span class="field-label" title="Pozisyonun açıldıktan kapanana kadar elde tutulma süresi (gün)">Elde Tutma (gün)</span>
+          <input type="number" inputmode="numeric" step="1" min="0" data-field="dte" placeholder="30" />
+        </label>
+        <label class="field">
+          <span class="field-label" title="Bu kurguda ayda kaç kez aynı trade açılır">Aylık Trade Sayısı</span>
+          <input type="number" inputmode="numeric" step="1" min="0" data-field="monthlyTrades" placeholder="1" />
+        </label>
+      </div>
+
+      <div class="results"></div>
+    </article>
+  </template>
+
+  <script src="./app.js"></script>
+</body>
+</html>
