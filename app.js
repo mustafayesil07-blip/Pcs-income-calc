@@ -1,23 +1,23 @@
 (() => {
   'use strict';
 
-  const STORAGE_KEY = 'pcs-calc-scenarios-v1';
+  const STORAGE_KEY = 'pcs-calc-scenarios-v2';
   const NUM_SCENARIOS = 5;
   const CONTRACT_MULTIPLIER = 100;
 
-  const FIELDS = ['name', 'width', 'premium', 'tp', 'sl', 'winRate', 'contracts', 'dte', 'monthlyTrades'];
+  const FIELDS = ['name', 'width', 'premium', 'tp', 'sl', 'winRate', 'contracts', 'dte', 'concurrent'];
 
   const EMPTY = () => ({
     name: '', width: '', premium: '', tp: '', sl: '',
-    winRate: '', contracts: '', dte: '', monthlyTrades: ''
+    winRate: '', contracts: '', dte: '', concurrent: ''
   });
 
   const EXAMPLE = [
-    { name: 'Konservatif',   width: 5,  premium: 0.50, tp: 50, sl: 200, winRate: 88, contracts: 5, dte: 30, monthlyTrades: 1 },
-    { name: 'Dengeli',       width: 5,  premium: 1.00, tp: 50, sl: 200, winRate: 85, contracts: 5, dte: 30, monthlyTrades: 1 },
-    { name: 'Agresif TP/SL', width: 5,  premium: 1.50, tp: 60, sl: 150, winRate: 78, contracts: 5, dte: 30, monthlyTrades: 1 },
-    { name: 'Kısa vadeli',   width: 5,  premium: 0.75, tp: 50, sl: 200, winRate: 82, contracts: 5, dte: 7,  monthlyTrades: 4 },
-    { name: 'Geniş kanat',   width: 10, premium: 2.00, tp: 50, sl: 200, winRate: 84, contracts: 3, dte: 30, monthlyTrades: 1 },
+    { name: 'Konservatif',   width: 5,  premium: 0.50, tp: 50, sl: 200, winRate: 88, contracts: 5, dte: 30, concurrent: 1 },
+    { name: 'Dengeli',       width: 5,  premium: 1.00, tp: 50, sl: 200, winRate: 85, contracts: 5, dte: 30, concurrent: 2 },
+    { name: 'Agresif TP/SL', width: 5,  premium: 1.50, tp: 60, sl: 150, winRate: 78, contracts: 5, dte: 30, concurrent: 1 },
+    { name: 'Kısa vadeli',   width: 5,  premium: 0.75, tp: 50, sl: 200, winRate: 82, contracts: 5, dte: 7,  concurrent: 3 },
+    { name: 'Geniş kanat',   width: 10, premium: 2.00, tp: 50, sl: 200, winRate: 84, contracts: 3, dte: 30, concurrent: 2 },
   ];
 
   let scenarios = loadScenarios();
@@ -28,8 +28,7 @@
       if (!raw) return Array.from({ length: NUM_SCENARIOS }, EMPTY);
       const data = JSON.parse(raw);
       if (!Array.isArray(data)) return Array.from({ length: NUM_SCENARIOS }, EMPTY);
-      const padded = Array.from({ length: NUM_SCENARIOS }, (_, i) => ({ ...EMPTY(), ...(data[i] || {}) }));
-      return padded;
+      return Array.from({ length: NUM_SCENARIOS }, (_, i) => ({ ...EMPTY(), ...(data[i] || {}) }));
     } catch {
       return Array.from({ length: NUM_SCENARIOS }, EMPTY);
     }
@@ -52,25 +51,32 @@
     const winRate = toNum(s.winRate) / 100;
     const contracts = toNum(s.contracts);
     const dte = toNum(s.dte);
-    const monthlyTrades = toNum(s.monthlyTrades);
+    const concurrent = toNum(s.concurrent);
 
-    if (![width, premium, tp, sl, winRate, contracts, dte, monthlyTrades].every(Number.isFinite)) return null;
-    if (width <= 0 || premium <= 0 || contracts <= 0 || dte <= 0 || monthlyTrades <= 0) return null;
+    if (![width, premium, tp, sl, winRate, contracts, dte, concurrent].every(Number.isFinite)) return null;
+    if (width <= 0 || premium <= 0 || contracts <= 0 || dte <= 0 || concurrent <= 0) return null;
 
     const widthInvalid = premium >= width;
     const maxProfitPerContract = premium * CONTRACT_MULTIPLIER;
     const maxLossPerContract = Math.max(0, (width - premium) * CONTRACT_MULTIPLIER);
 
-    const totalMaxProfit = maxProfitPerContract * contracts;
-    const totalMaxLoss = maxLossPerContract * contracts;
-    const totalCapital = totalMaxLoss;
+    const maxProfitPerTrade = maxProfitPerContract * contracts;
+    const maxLossPerTrade = maxLossPerContract * contracts;
+    const capitalPerPosition = maxLossPerTrade;
 
-    const tpGainPerTrade = totalMaxProfit * tp;
-    const slLossPerTrade = Math.min(totalMaxProfit * sl, totalMaxLoss);
+    const deployedCapital = capitalPerPosition * concurrent;
+
+    const tpGainPerTrade = maxProfitPerTrade * tp;
+    const slLossPerTrade = Math.min(maxProfitPerTrade * sl, maxLossPerTrade);
 
     const evPerTrade = winRate * tpGainPerTrade - (1 - winRate) * slLossPerTrade;
+    const rocPerTrade = capitalPerPosition > 0 ? (evPerTrade / capitalPerPosition) * 100 : 0;
+
+    const monthlyCycles = 30 / dte;
+    const monthlyTrades = concurrent * monthlyCycles;
     const monthlyEV = evPerTrade * monthlyTrades;
-    const monthlyROC = totalCapital > 0 ? (monthlyEV / totalCapital) * 100 : 0;
+    const monthlyROC = deployedCapital > 0 ? (monthlyEV / deployedCapital) * 100 : 0;
+
     const annualEV = monthlyEV * 12;
     const annualROC = monthlyROC * 12;
 
@@ -79,21 +85,17 @@
       ? (slLossPerTrade / (tpGainPerTrade + slLossPerTrade)) * 100
       : 0;
     const edge = (winRate * 100) - breakevenWR;
-    const rocPerTrade = totalCapital > 0 ? (evPerTrade / totalCapital) * 100 : 0;
-
-    const concurrentAvg = (dte * monthlyTrades) / 30;
-    const concurrent = Math.max(1, Math.ceil(concurrentAvg));
-    const peakCapital = totalCapital * concurrent;
 
     return {
       widthInvalid,
-      totalMaxProfit, totalMaxLoss, totalCapital,
+      maxProfitPerTrade, maxLossPerTrade,
+      capitalPerPosition, deployedCapital,
       tpGainPerTrade, slLossPerTrade,
       evPerTrade, rocPerTrade,
+      monthlyCycles, monthlyTrades,
       monthlyEV, monthlyROC,
       annualEV, annualROC,
       riskReward, breakevenWR, edge,
-      concurrent, peakCapital,
     };
   }
 
@@ -115,6 +117,10 @@
     if (!Number.isFinite(v)) return '—';
     const sign = v >= 0 ? '+' : '';
     return `${sign}${v.toFixed(1)} pp`;
+  }
+  function fmtNum(v) {
+    if (!Number.isFinite(v)) return '—';
+    return v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 });
   }
 
   const scenariosRoot = document.getElementById('scenarios');
@@ -177,18 +183,23 @@
     const tiles = [
       { label: 'Aylık Beklenen Prim Geliri', value: fmtMoney(r.monthlyEV), big: true, cls: r.monthlyEV >= 0 ? 'positive' : 'negative' },
       { label: 'Aylık ROC',                   value: fmtPct(r.monthlyROC), big: true, cls: r.monthlyROC >= 0 ? 'positive' : 'negative' },
-      { label: 'Yatırılan Sermaye / Pozisyon',value: fmtMoney(r.totalCapital), big: true, cls: 'neutral' },
+      { label: 'Toplam Kullanılan Sermaye',   value: fmtMoney(r.deployedCapital), big: true, cls: 'neutral' },
+
+      { label: 'Aylık Trade Sayısı',          value: fmtNum(r.monthlyTrades), cls: 'neutral' },
+      { label: 'Aylık Cycle (30/DTE)',        value: fmtNum(r.monthlyCycles), cls: 'neutral' },
+      { label: 'Sermaye / Pozisyon',          value: fmtMoney(r.capitalPerPosition), cls: 'neutral' },
+
       { label: 'Beklenen Değer / Trade',      value: fmtMoney(r.evPerTrade), cls: r.evPerTrade >= 0 ? 'positive' : 'negative' },
       { label: 'ROC / Trade',                 value: fmtPct(r.rocPerTrade), cls: r.rocPerTrade >= 0 ? 'positive' : 'negative' },
       { label: 'Max Kâr (TP) / Trade',        value: fmtMoney(r.tpGainPerTrade), cls: 'positive' },
       { label: 'Max Zarar (SL) / Trade',      value: fmtMoney(-r.slLossPerTrade), cls: 'negative' },
+
       { label: 'Yıllık Beklenen Gelir',       value: fmtMoney(r.annualEV), cls: r.annualEV >= 0 ? 'positive' : 'negative' },
       { label: 'Yıllık ROC (basit)',          value: fmtPct(r.annualROC), cls: r.annualROC >= 0 ? 'positive' : 'negative' },
+
       { label: 'Risk / Ödül',                 value: fmtRatio(r.riskReward), cls: 'neutral' },
       { label: 'Breakeven Win Rate',          value: fmtPct(r.breakevenWR), cls: 'neutral' },
       { label: 'Edge (WR − BE)',              value: fmtEdge(r.edge), cls: r.edge >= 0 ? 'positive' : 'negative' },
-      { label: r.concurrent > 1 ? `Tepe Sermaye (~${r.concurrent} eşzamanlı)` : 'Tepe Sermaye', value: fmtMoney(r.peakCapital), cls: 'neutral' },
-      { label: 'Teorik Max Zarar',            value: fmtMoney(-r.totalMaxLoss), cls: 'negative' },
     ];
 
     target.innerHTML = warn + tiles.map(t => `
@@ -204,16 +215,17 @@
   }
 
   const COMPARE_METRICS = [
-    { key: 'monthlyEV',   label: 'Aylık Beklenen Gelir', fmt: fmtMoney, best: 'max' },
-    { key: 'monthlyROC',  label: 'Aylık ROC',            fmt: fmtPct,   best: 'max' },
-    { key: 'annualROC',   label: 'Yıllık ROC',           fmt: fmtPct,   best: 'max' },
-    { key: 'evPerTrade',  label: 'Beklenen Değer / Trade', fmt: fmtMoney, best: 'max' },
-    { key: 'rocPerTrade', label: 'ROC / Trade',          fmt: fmtPct,   best: 'max' },
-    { key: 'totalCapital',label: 'Sermaye / Pozisyon',   fmt: fmtMoney, best: 'min' },
-    { key: 'peakCapital', label: 'Tepe Sermaye',         fmt: fmtMoney, best: 'min' },
-    { key: 'riskReward',  label: 'Risk / Ödül',          fmt: fmtRatio, best: 'min' },
-    { key: 'breakevenWR', label: 'Breakeven WR',         fmt: fmtPct,   best: 'min' },
-    { key: 'edge',        label: 'Edge (WR − BE)',       fmt: fmtEdge,  best: 'max' },
+    { key: 'monthlyEV',          label: 'Aylık Beklenen Gelir',  fmt: fmtMoney, best: 'max' },
+    { key: 'monthlyROC',         label: 'Aylık ROC',             fmt: fmtPct,   best: 'max' },
+    { key: 'annualROC',          label: 'Yıllık ROC',            fmt: fmtPct,   best: 'max' },
+    { key: 'monthlyTrades',      label: 'Aylık Trade Sayısı',    fmt: fmtNum,   best: 'max' },
+    { key: 'evPerTrade',         label: 'Beklenen Değer / Trade',fmt: fmtMoney, best: 'max' },
+    { key: 'rocPerTrade',        label: 'ROC / Trade',           fmt: fmtPct,   best: 'max' },
+    { key: 'deployedCapital',    label: 'Kullanılan Sermaye',    fmt: fmtMoney, best: 'min' },
+    { key: 'capitalPerPosition', label: 'Sermaye / Pozisyon',    fmt: fmtMoney, best: 'min' },
+    { key: 'riskReward',         label: 'Risk / Ödül',           fmt: fmtRatio, best: 'min' },
+    { key: 'breakevenWR',        label: 'Breakeven WR',          fmt: fmtPct,   best: 'min' },
+    { key: 'edge',               label: 'Edge (WR − BE)',        fmt: fmtEdge,  best: 'max' },
   ];
 
   const comparisonRoot = document.getElementById('comparison-table');
@@ -281,8 +293,9 @@
 
   function exportCSV() {
     const header = [
-      'Senaryo','Kanat($)','Prim($)','TP(%)','SL(%)','WinRate(%)','Kontrat','DTE','AylıkTrade',
-      'Sermaye($)','TepeSermaye($)','EV/Trade($)','ROC/Trade(%)',
+      'Senaryo','Kanat($)','Prim($)','TP(%)','SL(%)','WinRate(%)','Kontrat','DTE','EşzamanlıPozisyon',
+      'KullanılanSermaye($)','SermayePerPozisyon($)','AylıkTradeSayısı','AylıkCycle',
+      'EV/Trade($)','ROC/Trade(%)',
       'AylıkGelir($)','AylıkROC(%)','YıllıkGelir($)','YıllıkROC(%)',
       'MaxKârTP($)','MaxZararSL($)','R/R','BreakevenWR(%)','Edge(pp)'
     ];
@@ -295,9 +308,11 @@
       any = true;
       rows.push([
         s.name || `Senaryo ${i + 1}`,
-        s.width, s.premium, s.tp, s.sl, s.winRate, s.contracts, s.dte, s.monthlyTrades,
-        r.totalCapital.toFixed(2),
-        r.peakCapital.toFixed(2),
+        s.width, s.premium, s.tp, s.sl, s.winRate, s.contracts, s.dte, s.concurrent,
+        r.deployedCapital.toFixed(2),
+        r.capitalPerPosition.toFixed(2),
+        r.monthlyTrades.toFixed(2),
+        r.monthlyCycles.toFixed(2),
         r.evPerTrade.toFixed(2),
         r.rocPerTrade.toFixed(2),
         r.monthlyEV.toFixed(2),
@@ -353,8 +368,16 @@
   window.addEventListener('appinstalled', () => { installBtn.hidden = true; });
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+      navigator.serviceWorker.register('./service-worker.js')
+        .then(reg => reg.update())
+        .catch(() => {});
     });
   }
 

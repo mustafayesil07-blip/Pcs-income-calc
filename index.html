@@ -36,6 +36,11 @@
   </header>
 
   <main>
+    <aside class="info-box" aria-label="Hesaplama modeli">
+      <strong>Model:</strong> Girdiğin <em>Eşzamanlı Pozisyon</em> sayısı kadar trade aynı anda açıktır. <em>Elde Tutma (DTE)</em> bittiğinde hepsi kapanır, yenileri açılır.
+      <br /><strong>Aylık trade</strong> = Eşzamanlı × (30 ÷ DTE) &nbsp;·&nbsp; <strong>Kullanılan sermaye</strong> = Eşzamanlı × Kontrat × (Kanat − Prim) × 100
+    </aside>
+
     <section id="scenarios" aria-label="Senaryolar"></section>
 
     <section id="comparison" aria-label="Karşılaştırma">
@@ -89,8 +94,8 @@
           <input type="number" inputmode="numeric" step="1" min="0" data-field="dte" placeholder="30" />
         </label>
         <label class="field">
-          <span class="field-label" title="Bu kurguda ayda kaç kez aynı trade açılır">Aylık Trade Sayısı</span>
-          <input type="number" inputmode="numeric" step="1" min="0" data-field="monthlyTrades" placeholder="1" />
+          <span class="field-label" title="Aynı anda kaç pozisyon açık tutulur. DTE bittiğinde hepsi kapanır, yenisi açılır. Aylık trade = eşzamanlı × (30 / DTE). Kullanılan sermaye = eşzamanlı × kontrat × (kanat − prim) × 100">Eşzamanlı Pozisyon</span>
+          <input type="number" inputmode="numeric" step="1" min="0" data-field="concurrent" placeholder="1" />
         </label>
       </div>
 

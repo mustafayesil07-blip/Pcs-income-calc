@@ -11,20 +11,26 @@ Aynı anda 5 farklı parametre setini alt alta hesaplar, en iyi metrikleri otoma
 - Take profit (%) — primin yüzde kaçında kâr alınır
 - Stop loss (%) — primin kaç katında stop verilir
 - Win rate (%)
-- Kontrat sayısı
-- Elde tutma süresi (gün)
-- Aylık trade sayısı
+- Kontrat sayısı (pozisyon başına)
+- Elde tutma süresi / DTE (gün)
+- **Eşzamanlı pozisyon sayısı** — aynı anda kaç pozisyon açık
+
+## Model
+
+- **Aylık trade sayısı** = Eşzamanlı × (30 ÷ DTE)
+- **Kullanılan sermaye** = Eşzamanlı × Kontrat × (Kanat − Prim) × 100
+- **Aylık ROC** = Aylık gelir ÷ Kullanılan sermaye
+
+Örnek: DTE=10 gün, eşzamanlı=20 pozisyon → aylık 60 trade, sermaye = 20 pozisyonun toplam teminatı.
 
 ## Hesaplanan metrikler
 
-- Aylık beklenen prim geliri
-- Aylık ROC ve yıllık ROC
-- Yatırılan sermaye / pozisyon ve tepe sermaye (overlap'a göre)
+- Aylık beklenen prim geliri, aylık & yıllık ROC
+- Toplam kullanılan sermaye ve pozisyon başına sermaye
+- Aylık trade sayısı (türetilmiş) ve aylık cycle
 - Beklenen değer / trade, ROC / trade
 - Max kâr (TP) ve max zarar (SL) / trade
-- Teorik max zarar
-- Risk / ödül oranı
-- Breakeven win rate ve edge (WR − BE)
+- Risk / ödül oranı, breakeven win rate, edge (WR − BE)
 
 ## Karşılaştırma
 
