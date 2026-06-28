@@ -77,6 +77,9 @@
     const monthlyEV = evPerTrade * monthlyTrades;
     const monthlyROC = deployedCapital > 0 ? (monthlyEV / deployedCapital) * 100 : 0;
 
+    // Ortalama günlük collateral = toplam capital-day / 30. Eq. capitalPerPosition * concurrent in steady state.
+    const dailyCollateral = (monthlyTrades * dte * capitalPerPosition) / 30;
+
     const annualEV = monthlyEV * 12;
     const annualROC = monthlyROC * 12;
 
@@ -89,7 +92,7 @@
     return {
       widthInvalid,
       maxProfitPerTrade, maxLossPerTrade,
-      capitalPerPosition, deployedCapital,
+      capitalPerPosition, deployedCapital, dailyCollateral,
       tpGainPerTrade, slLossPerTrade,
       evPerTrade, rocPerTrade,
       monthlyCycles, monthlyTrades,
@@ -185,6 +188,7 @@
       { label: 'Aylık ROC',                   value: fmtPct(r.monthlyROC), big: true, cls: r.monthlyROC >= 0 ? 'positive' : 'negative' },
       { label: 'Toplam Kullanılan Sermaye',   value: fmtMoney(r.deployedCapital), big: true, cls: 'neutral' },
 
+      { label: 'Ortalama Günlük Collateral',  value: fmtMoney(r.dailyCollateral), cls: 'neutral' },
       { label: 'Aylık Trade Sayısı',          value: fmtNum(r.monthlyTrades), cls: 'neutral' },
       { label: 'Aylık Cycle (30/DTE)',        value: fmtNum(r.monthlyCycles), cls: 'neutral' },
       { label: 'Sermaye / Pozisyon',          value: fmtMoney(r.capitalPerPosition), cls: 'neutral' },
@@ -215,17 +219,18 @@
   }
 
   const COMPARE_METRICS = [
-    { key: 'monthlyEV',          label: 'Aylık Beklenen Gelir',  fmt: fmtMoney, best: 'max' },
-    { key: 'monthlyROC',         label: 'Aylık ROC',             fmt: fmtPct,   best: 'max' },
-    { key: 'annualROC',          label: 'Yıllık ROC',            fmt: fmtPct,   best: 'max' },
-    { key: 'monthlyTrades',      label: 'Aylık Trade Sayısı',    fmt: fmtNum,   best: 'max' },
-    { key: 'evPerTrade',         label: 'Beklenen Değer / Trade',fmt: fmtMoney, best: 'max' },
-    { key: 'rocPerTrade',        label: 'ROC / Trade',           fmt: fmtPct,   best: 'max' },
-    { key: 'deployedCapital',    label: 'Kullanılan Sermaye',    fmt: fmtMoney, best: 'min' },
-    { key: 'capitalPerPosition', label: 'Sermaye / Pozisyon',    fmt: fmtMoney, best: 'min' },
-    { key: 'riskReward',         label: 'Risk / Ödül',           fmt: fmtRatio, best: 'min' },
-    { key: 'breakevenWR',        label: 'Breakeven WR',          fmt: fmtPct,   best: 'min' },
-    { key: 'edge',               label: 'Edge (WR − BE)',        fmt: fmtEdge,  best: 'max' },
+    { key: 'monthlyEV',          label: 'Aylık Beklenen Gelir',     fmt: fmtMoney, best: 'max' },
+    { key: 'monthlyROC',         label: 'Aylık ROC',                fmt: fmtPct,   best: 'max' },
+    { key: 'annualROC',          label: 'Yıllık ROC',               fmt: fmtPct,   best: 'max' },
+    { key: 'monthlyTrades',      label: 'Aylık Trade Sayısı',       fmt: fmtNum,   best: 'max' },
+    { key: 'evPerTrade',         label: 'Beklenen Değer / Trade',   fmt: fmtMoney, best: 'max' },
+    { key: 'rocPerTrade',        label: 'ROC / Trade',              fmt: fmtPct,   best: 'max' },
+    { key: 'deployedCapital',    label: 'Kullanılan Sermaye',       fmt: fmtMoney, best: 'min' },
+    { key: 'dailyCollateral',    label: 'Ort. Günlük Collateral',   fmt: fmtMoney, best: 'min' },
+    { key: 'capitalPerPosition', label: 'Sermaye / Pozisyon',       fmt: fmtMoney, best: 'min' },
+    { key: 'riskReward',         label: 'Risk / Ödül',              fmt: fmtRatio, best: 'min' },
+    { key: 'breakevenWR',        label: 'Breakeven WR',             fmt: fmtPct,   best: 'min' },
+    { key: 'edge',               label: 'Edge (WR − BE)',           fmt: fmtEdge,  best: 'max' },
   ];
 
   const comparisonRoot = document.getElementById('comparison-table');
@@ -294,7 +299,7 @@
   function exportCSV() {
     const header = [
       'Senaryo','Kanat($)','Prim($)','TP(%)','SL(%)','WinRate(%)','Kontrat','DTE','EşzamanlıPozisyon',
-      'KullanılanSermaye($)','SermayePerPozisyon($)','AylıkTradeSayısı','AylıkCycle',
+      'KullanılanSermaye($)','Ort.GünlükCollateral($)','SermayePerPozisyon($)','AylıkTradeSayısı','AylıkCycle',
       'EV/Trade($)','ROC/Trade(%)',
       'AylıkGelir($)','AylıkROC(%)','YıllıkGelir($)','YıllıkROC(%)',
       'MaxKârTP($)','MaxZararSL($)','R/R','BreakevenWR(%)','Edge(pp)'
@@ -310,6 +315,7 @@
         s.name || `Senaryo ${i + 1}`,
         s.width, s.premium, s.tp, s.sl, s.winRate, s.contracts, s.dte, s.concurrent,
         r.deployedCapital.toFixed(2),
+        r.dailyCollateral.toFixed(2),
         r.capitalPerPosition.toFixed(2),
         r.monthlyTrades.toFixed(2),
         r.monthlyCycles.toFixed(2),

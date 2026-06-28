@@ -1,4 +1,4 @@
-const CACHE = 'pcs-calc-v2';
+const CACHE = 'pcs-calc-v3';
 const ASSETS = [
   './',
   './index.html',
