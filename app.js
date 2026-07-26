@@ -2,8 +2,12 @@
   'use strict';
 
   const STORAGE_KEY = 'pcs-calc-scenarios-v2';
+  const RATE_STORAGE_KEY = 'pcs-usdtry-v1';
   const NUM_SCENARIOS = 5;
   const CONTRACT_MULTIPLIER = 100;
+  const RATE_TTL_MS = 6 * 60 * 60 * 1000;
+  const TR_NET_RATIO = 0.75;
+  const GR_NET_RATIO = 0.85;
 
   const FIELDS = ['name', 'width', 'premium', 'tp', 'sl', 'winRate', 'contracts', 'dte', 'concurrent'];
 
@@ -21,6 +25,76 @@
   ];
 
   let scenarios = loadScenarios();
+
+  let usdTryRate = 34;
+  let rateOverride = false;
+  let rateFetchedAt = 0;
+
+  function loadRate() {
+    try {
+      const raw = localStorage.getItem(RATE_STORAGE_KEY);
+      if (!raw) return;
+      const c = JSON.parse(raw);
+      if (typeof c?.rate === 'number' && c.rate > 0) {
+        usdTryRate = c.rate;
+        rateOverride = !!c.override;
+        rateFetchedAt = c.at || 0;
+      }
+    } catch {}
+  }
+
+  function saveRate() {
+    try {
+      localStorage.setItem(RATE_STORAGE_KEY, JSON.stringify({
+        rate: usdTryRate, override: rateOverride, at: rateFetchedAt
+      }));
+    } catch {}
+  }
+
+  async function fetchRate(force = false) {
+    if (rateOverride && !force) return;
+    if (!force && rateFetchedAt && (Date.now() - rateFetchedAt < RATE_TTL_MS)) return;
+    const endpoints = [
+      { url: 'https://open.er-api.com/v6/latest/USD', pick: d => d?.rates?.TRY },
+      { url: 'https://api.frankfurter.app/latest?from=USD&to=TRY', pick: d => d?.rates?.TRY },
+    ];
+    for (const ep of endpoints) {
+      try {
+        const resp = await fetch(ep.url, { cache: 'no-store' });
+        if (!resp.ok) continue;
+        const data = await resp.json();
+        const rate = ep.pick(data);
+        if (typeof rate === 'number' && rate > 0) {
+          usdTryRate = rate;
+          rateOverride = false;
+          rateFetchedAt = Date.now();
+          saveRate();
+          syncRateInput();
+          renderAllResults();
+          renderComparison();
+          return;
+        }
+      } catch {}
+    }
+  }
+
+  function syncRateInput() {
+    const input = document.getElementById('rate-input');
+    if (!input) return;
+    if (document.activeElement === input) return;
+    input.value = usdTryRate.toFixed(2);
+  }
+
+  function setUserRate(v) {
+    const n = parseFloat(String(v).replace(',', '.'));
+    if (!Number.isFinite(n) || n <= 0) return;
+    usdTryRate = n;
+    rateOverride = true;
+    rateFetchedAt = Date.now();
+    saveRate();
+    renderAllResults();
+    renderComparison();
+  }
 
   function loadScenarios() {
     try {
@@ -63,7 +137,6 @@
     const maxProfitPerTrade = maxProfitPerContract * contracts;
     const maxLossPerTrade = maxLossPerContract * contracts;
     const capitalPerPosition = maxLossPerTrade;
-
     const deployedCapital = capitalPerPosition * concurrent;
 
     const tpGainPerTrade = maxProfitPerTrade * tp;
@@ -75,12 +148,15 @@
     const monthlyCycles = 30 / dte;
     const monthlyTrades = concurrent * monthlyCycles;
     const monthlyEV = evPerTrade * monthlyTrades;
+    const monthlyEVTRNet = monthlyEV * TR_NET_RATIO;
+    const monthlyEVGRNet = monthlyEV * GR_NET_RATIO;
     const monthlyROC = deployedCapital > 0 ? (monthlyEV / deployedCapital) * 100 : 0;
 
-    // Ortalama günlük collateral = toplam capital-day / 30. Eq. capitalPerPosition * concurrent in steady state.
     const dailyCollateral = (monthlyTrades * dte * capitalPerPosition) / 30;
 
     const annualEV = monthlyEV * 12;
+    const annualEVTRNet = annualEV * TR_NET_RATIO;
+    const annualEVGRNet = annualEV * GR_NET_RATIO;
     const annualROC = monthlyROC * 12;
 
     const riskReward = tpGainPerTrade > 0 ? slLossPerTrade / tpGainPerTrade : 0;
@@ -96,8 +172,8 @@
       tpGainPerTrade, slLossPerTrade,
       evPerTrade, rocPerTrade,
       monthlyCycles, monthlyTrades,
-      monthlyEV, monthlyROC,
-      annualEV, annualROC,
+      monthlyEV, monthlyEVTRNet, monthlyEVGRNet, monthlyROC,
+      annualEV, annualEVTRNet, annualEVGRNet, annualROC,
       riskReward, breakevenWR, edge,
     };
   }
@@ -107,6 +183,13 @@
     const sign = v < 0 ? '-' : '';
     const abs = Math.abs(v);
     return `${sign}$${abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  function fmtTRY(v) {
+    if (!Number.isFinite(v)) return '—';
+    const sign = v < 0 ? '-' : '';
+    const abs = Math.abs(v);
+    const digits = abs >= 100 ? 0 : 2;
+    return `${sign}₺${abs.toLocaleString('tr-TR', { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
   }
   function fmtPct(v) {
     if (!Number.isFinite(v)) return '—';
@@ -169,6 +252,18 @@
     renderComparison();
   }
 
+  function tileHtml(t) {
+    const cls = ['result-tile', t.big ? 'big' : '', t.cls || ''].filter(Boolean).join(' ');
+    let body;
+    if (typeof t.usd === 'number') {
+      body = `<div class="result-value">${fmtMoney(t.usd)}</div>
+              <div class="result-value-try">${fmtTRY(t.usd * usdTryRate)}</div>`;
+    } else {
+      body = `<div class="result-value">${t.value}</div>`;
+    }
+    return `<div class="${cls}"><div class="result-label">${t.label}</div>${body}</div>`;
+  }
+
   function renderResults(i) {
     const card = cards[i];
     const target = card.querySelector('.results');
@@ -183,35 +278,33 @@
       ? '<div class="empty-state" style="color:var(--danger); border-color:var(--danger);">Uyarı: Alınan prim, kanat genişliğinden büyük olamaz.</div>'
       : '';
 
+    const evCls = r.monthlyEV >= 0 ? 'positive' : 'negative';
     const tiles = [
-      { label: 'Aylık Beklenen Prim Geliri', value: fmtMoney(r.monthlyEV), big: true, cls: r.monthlyEV >= 0 ? 'positive' : 'negative' },
-      { label: 'Aylık ROC',                   value: fmtPct(r.monthlyROC), big: true, cls: r.monthlyROC >= 0 ? 'positive' : 'negative' },
-      { label: 'Toplam Kullanılan Sermaye',   value: fmtMoney(r.deployedCapital), big: true, cls: 'neutral' },
+      { label: 'Aylık Prim (Gross)',        usd: r.monthlyEV,       big: true, cls: evCls },
+      { label: 'Aylık Prim TR Net (%75)',   usd: r.monthlyEVTRNet,  big: true, cls: evCls },
+      { label: 'Aylık Prim GR Net (%85)',   usd: r.monthlyEVGRNet,  big: true, cls: evCls },
+      { label: 'Aylık ROC',                 value: fmtPct(r.monthlyROC), big: true, cls: r.monthlyROC >= 0 ? 'positive' : 'negative' },
+      { label: 'Kullanılan Sermaye',        usd: r.deployedCapital, big: true, cls: 'neutral' },
 
-      { label: 'Ortalama Günlük Collateral',  value: fmtMoney(r.dailyCollateral), cls: 'neutral' },
-      { label: 'Aylık Trade Sayısı',          value: fmtNum(r.monthlyTrades), cls: 'neutral' },
-      { label: 'Aylık Cycle (30/DTE)',        value: fmtNum(r.monthlyCycles), cls: 'neutral' },
-      { label: 'Sermaye / Pozisyon',          value: fmtMoney(r.capitalPerPosition), cls: 'neutral' },
+      { label: 'Yıllık Prim (Gross)',       usd: r.annualEV,        cls: evCls },
+      { label: 'Yıllık ROC (basit)',        value: fmtPct(r.annualROC), cls: r.annualROC >= 0 ? 'positive' : 'negative' },
+      { label: 'Ort. Günlük Collateral',    usd: r.dailyCollateral, cls: 'neutral' },
+      { label: 'Sermaye / Pozisyon',        usd: r.capitalPerPosition, cls: 'neutral' },
 
-      { label: 'Beklenen Değer / Trade',      value: fmtMoney(r.evPerTrade), cls: r.evPerTrade >= 0 ? 'positive' : 'negative' },
-      { label: 'ROC / Trade',                 value: fmtPct(r.rocPerTrade), cls: r.rocPerTrade >= 0 ? 'positive' : 'negative' },
-      { label: 'Max Kâr (TP) / Trade',        value: fmtMoney(r.tpGainPerTrade), cls: 'positive' },
-      { label: 'Max Zarar (SL) / Trade',      value: fmtMoney(-r.slLossPerTrade), cls: 'negative' },
+      { label: 'Aylık Trade Sayısı',        value: fmtNum(r.monthlyTrades), cls: 'neutral' },
+      { label: 'Aylık Cycle (30/DTE)',      value: fmtNum(r.monthlyCycles), cls: 'neutral' },
 
-      { label: 'Yıllık Beklenen Gelir',       value: fmtMoney(r.annualEV), cls: r.annualEV >= 0 ? 'positive' : 'negative' },
-      { label: 'Yıllık ROC (basit)',          value: fmtPct(r.annualROC), cls: r.annualROC >= 0 ? 'positive' : 'negative' },
+      { label: 'Beklenen Değer / Trade',    usd: r.evPerTrade, cls: r.evPerTrade >= 0 ? 'positive' : 'negative' },
+      { label: 'ROC / Trade',               value: fmtPct(r.rocPerTrade), cls: r.rocPerTrade >= 0 ? 'positive' : 'negative' },
+      { label: 'Max Kâr (TP) / Trade',      usd: r.tpGainPerTrade, cls: 'positive' },
+      { label: 'Max Zarar (SL) / Trade',    usd: -r.slLossPerTrade, cls: 'negative' },
 
-      { label: 'Risk / Ödül',                 value: fmtRatio(r.riskReward), cls: 'neutral' },
-      { label: 'Breakeven Win Rate',          value: fmtPct(r.breakevenWR), cls: 'neutral' },
-      { label: 'Edge (WR − BE)',              value: fmtEdge(r.edge), cls: r.edge >= 0 ? 'positive' : 'negative' },
+      { label: 'Risk / Ödül',               value: fmtRatio(r.riskReward), cls: 'neutral' },
+      { label: 'Breakeven Win Rate',        value: fmtPct(r.breakevenWR), cls: 'neutral' },
+      { label: 'Edge (WR − BE)',            value: fmtEdge(r.edge), cls: r.edge >= 0 ? 'positive' : 'negative' },
     ];
 
-    target.innerHTML = warn + tiles.map(t => `
-      <div class="result-tile ${t.big ? 'big' : ''} ${t.cls || ''}">
-        <div class="result-label">${t.label}</div>
-        <div class="result-value">${t.value}</div>
-      </div>
-    `).join('');
+    target.innerHTML = warn + tiles.map(tileHtml).join('');
   }
 
   function renderAllResults() {
@@ -219,18 +312,20 @@
   }
 
   const COMPARE_METRICS = [
-    { key: 'monthlyEV',          label: 'Aylık Beklenen Gelir',     fmt: fmtMoney, best: 'max' },
-    { key: 'monthlyROC',         label: 'Aylık ROC',                fmt: fmtPct,   best: 'max' },
-    { key: 'annualROC',          label: 'Yıllık ROC',               fmt: fmtPct,   best: 'max' },
-    { key: 'monthlyTrades',      label: 'Aylık Trade Sayısı',       fmt: fmtNum,   best: 'max' },
-    { key: 'evPerTrade',         label: 'Beklenen Değer / Trade',   fmt: fmtMoney, best: 'max' },
-    { key: 'rocPerTrade',        label: 'ROC / Trade',              fmt: fmtPct,   best: 'max' },
-    { key: 'deployedCapital',    label: 'Kullanılan Sermaye',       fmt: fmtMoney, best: 'min' },
-    { key: 'dailyCollateral',    label: 'Ort. Günlük Collateral',   fmt: fmtMoney, best: 'min' },
-    { key: 'capitalPerPosition', label: 'Sermaye / Pozisyon',       fmt: fmtMoney, best: 'min' },
-    { key: 'riskReward',         label: 'Risk / Ödül',              fmt: fmtRatio, best: 'min' },
-    { key: 'breakevenWR',        label: 'Breakeven WR',             fmt: fmtPct,   best: 'min' },
-    { key: 'edge',               label: 'Edge (WR − BE)',           fmt: fmtEdge,  best: 'max' },
+    { key: 'monthlyEV',          label: 'Aylık Prim (Gross)',     fmt: fmtMoney, best: 'max' },
+    { key: 'monthlyEVTRNet',     label: 'Aylık TR Net (%75)',     fmt: fmtMoney, best: 'max' },
+    { key: 'monthlyEVGRNet',     label: 'Aylık GR Net (%85)',     fmt: fmtMoney, best: 'max' },
+    { key: 'monthlyROC',         label: 'Aylık ROC',              fmt: fmtPct,   best: 'max' },
+    { key: 'annualROC',          label: 'Yıllık ROC',             fmt: fmtPct,   best: 'max' },
+    { key: 'monthlyTrades',      label: 'Aylık Trade Sayısı',     fmt: fmtNum,   best: 'max' },
+    { key: 'evPerTrade',         label: 'Beklenen Değer / Trade', fmt: fmtMoney, best: 'max' },
+    { key: 'rocPerTrade',        label: 'ROC / Trade',            fmt: fmtPct,   best: 'max' },
+    { key: 'deployedCapital',    label: 'Kullanılan Sermaye',     fmt: fmtMoney, best: 'min' },
+    { key: 'dailyCollateral',    label: 'Ort. Günlük Collateral', fmt: fmtMoney, best: 'min' },
+    { key: 'capitalPerPosition', label: 'Sermaye / Pozisyon',     fmt: fmtMoney, best: 'min' },
+    { key: 'riskReward',         label: 'Risk / Ödül',            fmt: fmtRatio, best: 'min' },
+    { key: 'breakevenWR',        label: 'Breakeven WR',           fmt: fmtPct,   best: 'min' },
+    { key: 'edge',               label: 'Edge (WR − BE)',         fmt: fmtEdge,  best: 'max' },
   ];
 
   const comparisonRoot = document.getElementById('comparison-table');
@@ -299,10 +394,13 @@
   function exportCSV() {
     const header = [
       'Senaryo','Kanat($)','Prim($)','TP(%)','SL(%)','WinRate(%)','Kontrat','DTE','EşzamanlıPozisyon',
-      'KullanılanSermaye($)','Ort.GünlükCollateral($)','SermayePerPozisyon($)','AylıkTradeSayısı','AylıkCycle',
+      'KullanılanSermaye($)','OrtGünlükCollateral($)','SermayePerPozisyon($)',
+      'AylıkTradeSayısı','AylıkCycle',
       'EV/Trade($)','ROC/Trade(%)',
-      'AylıkGelir($)','AylıkROC(%)','YıllıkGelir($)','YıllıkROC(%)',
-      'MaxKârTP($)','MaxZararSL($)','R/R','BreakevenWR(%)','Edge(pp)'
+      'AylıkGrossPrim($)','AylıkTRNet($)','AylıkGRNet($)','AylıkROC(%)',
+      'YıllıkGrossPrim($)','YıllıkTRNet($)','YıllıkGRNet($)','YıllıkROC(%)',
+      'MaxKârTP($)','MaxZararSL($)','R/R','BreakevenWR(%)','Edge(pp)',
+      'USDTRY','AylıkGrossPrim(₺)','AylıkTRNet(₺)','AylıkGRNet(₺)'
     ];
     const rows = [header];
     let any = false;
@@ -322,14 +420,22 @@
         r.evPerTrade.toFixed(2),
         r.rocPerTrade.toFixed(2),
         r.monthlyEV.toFixed(2),
+        r.monthlyEVTRNet.toFixed(2),
+        r.monthlyEVGRNet.toFixed(2),
         r.monthlyROC.toFixed(2),
         r.annualEV.toFixed(2),
+        r.annualEVTRNet.toFixed(2),
+        r.annualEVGRNet.toFixed(2),
         r.annualROC.toFixed(2),
         r.tpGainPerTrade.toFixed(2),
         (-r.slLossPerTrade).toFixed(2),
         r.riskReward.toFixed(2),
         r.breakevenWR.toFixed(2),
         r.edge.toFixed(2),
+        usdTryRate.toFixed(4),
+        (r.monthlyEV * usdTryRate).toFixed(2),
+        (r.monthlyEVTRNet * usdTryRate).toFixed(2),
+        (r.monthlyEVGRNet * usdTryRate).toFixed(2),
       ]);
     });
 
@@ -353,6 +459,12 @@
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
+
+  const rateInput = document.getElementById('rate-input');
+  const rateRefresh = document.getElementById('rate-refresh');
+  rateInput.addEventListener('input', e => setUserRate(e.target.value));
+  rateInput.addEventListener('blur', syncRateInput);
+  rateRefresh.addEventListener('click', () => fetchRate(true));
 
   let deferredPrompt = null;
   const installBtn = document.getElementById('install-btn');
@@ -387,7 +499,10 @@
     });
   }
 
+  loadRate();
+  syncRateInput();
   buildCards();
   renderAllResults();
   renderComparison();
+  fetchRate();
 })();
