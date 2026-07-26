@@ -27,6 +27,11 @@
         </div>
       </div>
       <div class="controls" role="toolbar" aria-label="Uygulama kontrolleri">
+        <div class="rate-panel" title="TL karşılıklarında kullanılan güncel USD/TRY kuru">
+          <span class="rate-label">USDTRY</span>
+          <input id="rate-input" type="number" inputmode="decimal" step="0.01" min="0.01" aria-label="USDTRY kuru" />
+          <button id="rate-refresh" type="button" class="rate-refresh" title="Kuru internetten yenile" aria-label="Kuru yenile">↻</button>
+        </div>
         <button id="example-btn" type="button" title="5 senaryoyu örnek değerlerle doldur">Örnek Doldur</button>
         <button id="reset-btn" type="button" title="Tüm senaryoları temizle">Temizle</button>
         <button id="export-btn" type="button" title="Karşılaştırma tablosunu CSV olarak indir">CSV İndir</button>
@@ -37,8 +42,7 @@
 
   <main>
     <aside class="info-box" aria-label="Hesaplama modeli">
-      <strong>Model:</strong> Girdiğin <em>Eşzamanlı Pozisyon</em> sayısı kadar trade aynı anda açıktır. <em>Elde Tutma (DTE)</em> bittiğinde hepsi kapanır, yenileri açılır.
-      <br /><strong>Aylık trade</strong> = Eşzamanlı × (30 ÷ DTE) &nbsp;·&nbsp; <strong>Kullanılan sermaye</strong> = Eşzamanlı × Kontrat × (Kanat − Prim) × 100
+      <strong>Model:</strong> <em>Eşzamanlı</em> pozisyon aynı anda açık; <em>DTE</em> bittiğinde yenilenir. <strong>Aylık trade</strong> = Eşzamanlı × (30 ÷ DTE) · <strong>Kullanılan sermaye</strong> = Eşzamanlı × Kontrat × (Kanat − Prim) × 100 · <strong>TR Net</strong> = Gross × 0.75 · <strong>GR Net</strong> = Gross × 0.85
     </aside>
 
     <section id="scenarios" aria-label="Senaryolar"></section>
@@ -94,7 +98,7 @@
           <input type="number" inputmode="numeric" step="1" min="0" data-field="dte" placeholder="30" />
         </label>
         <label class="field">
-          <span class="field-label" title="Aynı anda kaç pozisyon açık tutulur. DTE bittiğinde hepsi kapanır, yenisi açılır. Aylık trade = eşzamanlı × (30 / DTE). Kullanılan sermaye = eşzamanlı × kontrat × (kanat − prim) × 100">Eşzamanlı Pozisyon</span>
+          <span class="field-label" title="Aynı anda kaç pozisyon açık tutulur. Aylık trade = eşzamanlı × (30 / DTE)">Eşzamanlı Pozisyon</span>
           <input type="number" inputmode="numeric" step="1" min="0" data-field="concurrent" placeholder="1" />
         </label>
       </div>
